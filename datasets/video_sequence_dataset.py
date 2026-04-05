@@ -76,33 +76,52 @@ class VideoSequenceDataset(Dataset):
             return TwoTransform(base)
 
     def _load_samples(self, split, split_ratio):
-        """Load video paths and labels from CSV files, then split."""
-        samples = []
+        """Load video paths and labels from CSV files, then do stratified split."""
+        import random
+
+        real_samples = []
+        fake_samples = []
 
         # Load real videos
         csv_path = os.path.join(self.root_dir, "csv", "original.csv")
-        samples += self._parse_csv(csv_path)
+        real_samples += self._parse_csv(csv_path)
 
         # Load fake videos for each manipulation type
         for m_type in self.manipulation_types:
             csv_path = os.path.join(self.root_dir, "csv", f"{m_type}.csv")
             if os.path.exists(csv_path):
-                samples += self._parse_csv(csv_path)
+                fake_samples += self._parse_csv(csv_path)
 
-        # Sort for reproducible splits
-        samples.sort(key=lambda x: x[0])
+        # Sort each group for reproducibility, then shuffle with fixed seed
+        real_samples.sort(key=lambda x: x[0])
+        fake_samples.sort(key=lambda x: x[0])
+        random.Random(42).shuffle(real_samples)
+        random.Random(42).shuffle(fake_samples)
 
-        # Split
-        n = len(samples)
-        train_end = int(n * split_ratio[0])
-        val_end = train_end + int(n * split_ratio[1])
+        # Stratified split: same ratio of real/fake in each split
+        def split_list(lst, ratios):
+            n = len(lst)
+            train_end = int(n * ratios[0])
+            val_end = train_end + int(n * ratios[1])
+            return lst[:train_end], lst[train_end:val_end], lst[val_end:]
 
-        if split == "train":
-            return samples[:train_end]
-        elif split == "val":
-            return samples[train_end:val_end]
-        else:
-            return samples[val_end:]
+        real_train, real_val, real_test = split_list(real_samples, split_ratio)
+        fake_train, fake_val, fake_test = split_list(fake_samples, split_ratio)
+
+        splits = {
+            "train": real_train + fake_train,
+            "val": real_val + fake_val,
+            "test": real_test + fake_test,
+        }
+
+        result = splits[split]
+        random.Random(42).shuffle(result)
+
+        print(f"  {split}: {len(result)} videos "
+              f"({sum(1 for s in result if s[1] == 0)} real, "
+              f"{sum(1 for s in result if s[1] == 1)} fake)")
+
+        return result
 
     def _parse_csv(self, csv_path):
         """Parse FF++ CSV and return list of (video_path, label, manipulation_type)."""

@@ -83,17 +83,37 @@ def main():
 
         scheduler.step()
 
+        # Save checkpoint every epoch
+        ckpt_path = os.path.join(args.save_dir, f"epoch_{epoch}.pth")
+        torch.save({
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "auc": val_metrics["auc"],
+            "accuracy": val_metrics["accuracy"],
+        }, ckpt_path)
+        print(f"Saved checkpoint: {ckpt_path}")
+
         if val_metrics["auc"] > best_auc:
             best_auc = val_metrics["auc"]
-            path = os.path.join(args.save_dir, f"best_model_auc_{best_auc:.4f}.pth")
+            best_path = os.path.join(args.save_dir, "best_model.pth")
             torch.save({
                 "epoch": epoch,
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "auc": best_auc,
                 "accuracy": val_metrics["accuracy"],
-            }, path)
-            print(f"Saved best model: {path}")
+            }, best_path)
+            print(f"New best model! AUC: {best_auc:.4f}")
+
+    # Always save final model
+    final_path = os.path.join(args.save_dir, "final_model.pth")
+    torch.save({
+        "epoch": args.epochs,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+    }, final_path)
+    print(f"Saved final model: {final_path}")
 
     print(f"\n--- Final Test ---")
     test_metrics = evaluate(model, test_loader, criterion, device)
