@@ -1,8 +1,8 @@
 import csv
+import glob
 import os
 from pathlib import Path
 
-import cv2
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
@@ -136,35 +136,20 @@ class VideoSequenceDataset(Dataset):
         return samples
 
     def _sample_frames(self, video_path):
-        """Sample num_frames evenly-spaced frames from a video."""
-        capture = cv2.VideoCapture(video_path)
-        total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        """Load pre-extracted JPEG frames for a video."""
+        video_id = os.path.splitext(os.path.basename(video_path))[0]
+        jpegs_dir = os.path.join(os.path.dirname(video_path), "..", "jpegs")
 
-        if total_frames <= 0:
-            capture.release()
+        frame_files = sorted(
+            glob.glob(os.path.join(jpegs_dir, f"{video_id}_*.jpg")),
+            key=lambda p: int(os.path.splitext(os.path.basename(p))[0].rsplit("_", 1)[1])
+        )
+
+        if not frame_files:
             return None
 
-        # Evenly spaced indices
-        if total_frames >= self.num_frames:
-            indices = [int(i * total_frames / self.num_frames) for i in range(self.num_frames)]
-        else:
-            # If video is shorter than num_frames, sample all and pad by repeating last
-            indices = list(range(total_frames))
+        frames = [Image.open(p).convert("RGB") for p in frame_files]
 
-        frames = []
-        for idx in indices:
-            capture.set(cv2.CAP_PROP_POS_FRAMES, idx)
-            success, frame = capture.read()
-            if success:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frame = Image.fromarray(frame)
-                frames.append(frame)
-        capture.release()
-
-        if len(frames) == 0:
-            return None
-
-        # Pad if needed
         while len(frames) < self.num_frames:
             frames.append(frames[-1])
 
