@@ -14,7 +14,7 @@ networkx==3.6.1
 numpy
 opencv-python-headless
 packaging==26.0
-pillow==12.2.0
+pillow
 protobuf==7.34.1
 PyYAML==6.0.3
 requests==2.33.1
