@@ -1,3 +1,5 @@
 env
 __pycache__/
 .env
+datasets/jpegs
+datasets/*.mp4
