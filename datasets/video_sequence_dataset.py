@@ -138,7 +138,7 @@ class VideoSequenceDataset(Dataset):
     def _sample_frames(self, video_path):
         """Load pre-extracted JPEG frames for a video."""
         video_id = os.path.splitext(os.path.basename(video_path))[0]
-        jpegs_dir = os.path.join(os.path.dirname(video_path), "..", "jpegs")
+        jpegs_dir = os.path.join(os.path.dirname(video_path), "jpegs")
 
         frame_files = sorted(
             glob.glob(os.path.join(jpegs_dir, f"{video_id}_*.jpg")),

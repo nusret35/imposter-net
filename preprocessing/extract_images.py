@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     os.makedirs(os.path.join(args.root_dir, "jpegs"), exist_ok=True)
-    videos = [video_path for video_path in glob(os.path.join(args.root_dir, "*/*.mp4"))]
+    videos = [video_path for video_path in glob(os.path.join(args.root_dir, "*.mp4"))]
     with Pool(processes=cpu_count() - 2) as p:
         with tqdm(total=len(videos)) as pbar:
             for v in p.imap_unordered(partial(extract_video, root_dir=args.root_dir, num_frames=args.num_frames), videos):
