@@ -43,13 +43,16 @@ def extract_video(video, root_dir, num_frames):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Extracts evenly-spaced jpegs from video")
-    parser.add_argument("--root-dir", help="root directory")
+    parser.add_argument("--root-dir", help="root directory containing videos")
+    parser.add_argument("--output-dir", help="directory to save extracted frames")
     parser.add_argument("--num-frames", type=int, default=16, help="number of frames to extract per video")
 
     args = parser.parse_args()
-    os.makedirs(os.path.join(args.root_dir, "jpegs"), exist_ok=True)
-    videos = [video_path for video_path in glob(os.path.join(args.root_dir, "*.mp4"))]
+    output_dir = args.output_dir or args.root_dir
+    os.makedirs(os.path.join(output_dir, "jpegs"), exist_ok=True)
+    videos = [video_path for video_path in glob(os.path.join(args.root_dir, "**", "*.mp4"), recursive=True)]
+    print(f"Found {len(videos)} videos in {args.root_dir}")
     with Pool(processes=cpu_count() - 2) as p:
         with tqdm(total=len(videos)) as pbar:
-            for v in p.imap_unordered(partial(extract_video, root_dir=args.root_dir, num_frames=args.num_frames), videos):
+            for v in p.imap_unordered(partial(extract_video, root_dir=output_dir, num_frames=args.num_frames), videos):
                 pbar.update()
