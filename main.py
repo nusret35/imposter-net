@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument("--device", default="cpu", help="device (cpu/cuda/mps)")
     parser.add_argument("--accum-steps", type=int, default=1, help="gradient accumulation steps (effective batch = batch-size * accum-steps)")
     parser.add_argument("--resume", default=None, help="path to checkpoint to resume training from")
+    parser.add_argument("--eval-only", default=None, help="path to checkpoint to evaluate on test set (skips training)")
     parser.add_argument("--save-dir", default="checkpoints", help="directory to save model checkpoints")
     return parser.parse_args()
 
@@ -81,6 +82,19 @@ def main():
     ).to(device)
 
     criterion = CombinedLoss(consistency_weight=args.consistency_weight).to(device)
+
+    if args.eval_only:
+        print(f"Loading checkpoint: {args.eval_only}")
+        ckpt = torch.load(args.eval_only, map_location=device)
+        model.load_state_dict(ckpt["model_state_dict"])
+        print(f"\n--- Test Set Evaluation ---")
+        test_metrics = evaluate(model, test_loader, criterion, device)
+        print(f"Test - Acc: {test_metrics['accuracy']:.4f}, AUC: {test_metrics['auc']:.4f}")
+        for m_type, m_metrics in test_metrics.get("per_type", {}).items():
+            auc_str = f", AUC: {m_metrics['auc']:.4f}" if "auc" in m_metrics else ""
+            print(f"  {m_type}: Acc: {m_metrics['accuracy']:.4f}{auc_str}")
+        return
+
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
