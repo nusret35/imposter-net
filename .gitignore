@@ -4,3 +4,4 @@ __pycache__/
 datasets/jpegs
 datasets/*.mp4
 setup.sh
+checkpoints/

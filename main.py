@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument("--num-workers", type=int, default=0, help="dataloader workers")
     parser.add_argument("--device", default="cpu", help="device (cpu/cuda/mps)")
     parser.add_argument("--accum-steps", type=int, default=1, help="gradient accumulation steps (effective batch = batch-size * accum-steps)")
+    parser.add_argument("--resume", default=None, help="path to checkpoint to resume training from")
     parser.add_argument("--save-dir", default="checkpoints", help="directory to save model checkpoints")
     return parser.parse_args()
 
@@ -82,8 +83,22 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
+    start_epoch = 1
     best_auc = 0.0
-    for epoch in range(1, args.epochs + 1):
+
+    if args.resume:
+        print(f"Resuming from {args.resume}")
+        ckpt = torch.load(args.resume, map_location=device)
+        model.load_state_dict(ckpt["model_state_dict"])
+        optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        start_epoch = ckpt["epoch"] + 1
+        best_auc = ckpt.get("auc", 0.0)
+        # Advance scheduler to the correct epoch
+        for _ in range(ckpt["epoch"]):
+            scheduler.step()
+        print(f"Resumed at epoch {start_epoch}, best AUC so far: {best_auc:.4f}")
+
+    for epoch in range(start_epoch, args.epochs + 1):
         print(f"\n--- Epoch {epoch}/{args.epochs} ---")
 
         train_losses, train_acc = train_epoch(model, train_loader, criterion, optimizer, device, accum_steps=args.accum_steps)
