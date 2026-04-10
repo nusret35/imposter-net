@@ -1,28 +1,38 @@
 """Training and evaluation logic for temporal deepfake detector."""
 import torch
+from torch.amp import autocast, GradScaler
 from sklearn.metrics import accuracy_score, roc_auc_score
 from tqdm import tqdm
 
 
-def train_epoch(model, loader, criterion, optimizer, device):
+def train_epoch(model, loader, criterion, optimizer, device, accum_steps=1):
     model.train()
     running_losses = {}
     all_preds = []
     all_labels = []
 
-    for view1, view2, labels, _ in tqdm(loader, desc="Training"):
+    use_amp = device.type == "cuda"
+    scaler = GradScaler("cuda", enabled=use_amp)
+
+    optimizer.zero_grad()
+    for step, (view1, view2, labels, _) in enumerate(tqdm(loader, desc="Training")):
         view1 = view1.to(device)   # [B, T, 3, H, W]
         view2 = view2.to(device)   # [B, T, 3, H, W]
         labels = labels.to(device)
 
-        video_logits, frame_logits, feat_v1, feat_v2 = model(view1, view2)
+        with autocast("cuda", enabled=use_amp):
+            video_logits, frame_logits, feat_v1, feat_v2 = model(view1, view2)
+            loss, loss_dict = criterion(video_logits, frame_logits, labels, feat_v1, feat_v2)
+            loss = loss / accum_steps
 
-        loss, loss_dict = criterion(video_logits, frame_logits, labels, feat_v1, feat_v2)
+        scaler.scale(loss).backward()
 
-        optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
+        if (step + 1) % accum_steps == 0 or (step + 1) == len(loader):
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
 
         for k, v in loss_dict.items():
             running_losses[k] = running_losses.get(k, 0) + v
@@ -47,13 +57,16 @@ def evaluate(model, loader, criterion, device):
     all_labels = []
     all_mtypes = []
 
+    use_amp = device.type == "cuda"
+
     for view1, view2, labels, m_types in tqdm(loader, desc="Evaluating"):
         view1 = view1.to(device)
         view2 = view2.to(device)
         labels = labels.to(device)
 
-        video_logits, frame_logits, feat_v1, feat_v2 = model(view1, view2)
-        loss, loss_dict = criterion(video_logits, frame_logits, labels, feat_v1, feat_v2)
+        with autocast("cuda", enabled=use_amp):
+            video_logits, frame_logits, feat_v1, feat_v2 = model(view1, view2)
+            loss, loss_dict = criterion(video_logits, frame_logits, labels, feat_v1, feat_v2)
 
         for k, v in loss_dict.items():
             running_losses[k] = running_losses.get(k, 0) + v

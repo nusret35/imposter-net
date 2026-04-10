@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument("--consistency-weight", type=float, default=1.0, help="augmentation consistency loss weight")
     parser.add_argument("--num-workers", type=int, default=0, help="dataloader workers")
     parser.add_argument("--device", default="cpu", help="device (cpu/cuda/mps)")
+    parser.add_argument("--accum-steps", type=int, default=1, help="gradient accumulation steps (effective batch = batch-size * accum-steps)")
     parser.add_argument("--save-dir", default="checkpoints", help="directory to save model checkpoints")
     return parser.parse_args()
 
@@ -85,7 +86,7 @@ def main():
     for epoch in range(1, args.epochs + 1):
         print(f"\n--- Epoch {epoch}/{args.epochs} ---")
 
-        train_losses, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
+        train_losses, train_acc = train_epoch(model, train_loader, criterion, optimizer, device, accum_steps=args.accum_steps)
         print(f"Train - Loss: {train_losses['total']:.4f}, Acc: {train_acc:.4f}")
 
         val_metrics = evaluate(model, val_loader, criterion, device)
