@@ -1,4 +1,5 @@
 import argparse
+import csv
 import os
 
 import torch
@@ -98,6 +99,13 @@ def main():
             scheduler.step()
         print(f"Resumed at epoch {start_epoch}, best AUC so far: {best_auc:.4f}")
 
+    log_path = os.path.join(args.save_dir, "training_log.csv")
+    write_header = not os.path.exists(log_path) or start_epoch == 1
+    log_file = open(log_path, "a", newline="")
+    log_writer = csv.writer(log_file)
+    if write_header:
+        log_writer.writerow(["epoch", "train_loss", "val_loss", "val_auc"])
+
     for epoch in range(start_epoch, args.epochs + 1):
         print(f"\n--- Epoch {epoch}/{args.epochs} ---")
 
@@ -110,6 +118,9 @@ def main():
         for m_type, m_metrics in val_metrics.get("per_type", {}).items():
             auc_str = f", AUC: {m_metrics['auc']:.4f}" if "auc" in m_metrics else ""
             print(f"  {m_type}: Acc: {m_metrics['accuracy']:.4f}{auc_str}")
+
+        log_writer.writerow([epoch, f"{train_losses['total']:.4f}", f"{val_metrics['loss']['total']:.4f}", f"{val_metrics['auc']:.4f}"])
+        log_file.flush()
 
         scheduler.step()
 
@@ -135,6 +146,8 @@ def main():
                 "accuracy": val_metrics["accuracy"],
             }, best_path)
             print(f"New best model! AUC: {best_auc:.4f}")
+
+    log_file.close()
 
     # Always save final model
     final_path = os.path.join(args.save_dir, "final_model.pth")
