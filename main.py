@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 
 from datasets.video_sequence_dataset import VideoSequenceDataset
 from datasets.frame_sequence_dataset import FrameSequenceDataset
+from datasets.flat_frame_dataset import FlatFrameDataset
 from models.temporal_detector import TemporalDeepfakeDetector
 from training.losses import CombinedLoss
 from training.trainer import train_epoch, evaluate
@@ -20,6 +21,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Temporal Deepfake Detection")
     parser.add_argument("--root-dir", default=DATASET_ROOT, help="path to FF++ dataset")
     parser.add_argument("--frames-dir", default=None, help="path to pre-extracted frames (from extract_frames.py)")
+    parser.add_argument("--jpegs-dir", default=None, help="path to flat jpegs directory (from extract_images.py)")
+    parser.add_argument("--metadata-csv", default=None, help="path to FF++_Metadata_Shuffled.csv")
     parser.add_argument("--num-frames", type=int, default=16, help="frames to sample per video")
     parser.add_argument("--image-size", type=int, default=299, help="input image size")
     parser.add_argument("--batch-size", type=int, default=4, help="batch size")
@@ -34,7 +37,12 @@ def parse_args():
 
 
 def make_dataset(args, split):
-    if args.frames_dir:
+    if args.jpegs_dir and args.metadata_csv:
+        return FlatFrameDataset(
+            jpegs_dir=args.jpegs_dir, metadata_csv=args.metadata_csv,
+            split=split, num_frames=args.num_frames, image_size=args.image_size,
+        )
+    elif args.frames_dir:
         return FrameSequenceDataset(
             frames_dir=args.frames_dir, split=split,
             num_frames=args.num_frames, image_size=args.image_size,
