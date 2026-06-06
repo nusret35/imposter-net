@@ -1,6 +1,7 @@
 """Training and evaluation logic for temporal deepfake detector."""
 import torch
-from torch.amp import autocast, GradScaler
+from torch.amp import autocast 
+from torch.cuda.amp import GradScaler
 from sklearn.metrics import accuracy_score, roc_auc_score
 from tqdm import tqdm
 
@@ -12,7 +13,7 @@ def train_epoch(model, loader, criterion, optimizer, device, accum_steps=1):
     all_labels = []
 
     use_amp = device.type == "cuda"
-    scaler = GradScaler("cuda", enabled=use_amp)
+    scaler = GradScaler(enabled=use_amp)
 
     optimizer.zero_grad()
     for step, (view1, view2, labels, _) in enumerate(tqdm(loader, desc="Training")):
