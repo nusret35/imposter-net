@@ -6,7 +6,6 @@ os.environ["OMP_NUM_THREADS"] = "1"
 from functools import partial
 from glob import glob
 from multiprocessing.pool import Pool
-from os import cpu_count
 
 import cv2
 cv2.ocl.setUseOpenCL(False)
@@ -28,14 +27,15 @@ def extract_video(video, root_dir, num_frames):
         indices = list(range(total_frames))
 
     video_id = os.path.splitext(os.path.basename(video))[0]
-    out_dir = os.path.join(root_dir, "jpegs")
+    out_dir = os.path.join(root_dir, "jpegs", video_id)
+    os.makedirs(out_dir, exist_ok=True)
 
     for i, frame_idx in enumerate(indices):
         capture.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         success, frame = capture.read()
         if not success:
             continue
-        cv2.imwrite(os.path.join(out_dir, "{}_{:04d}.jpg".format(video_id, i)), frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+        cv2.imwrite(os.path.join(out_dir, "{:04d}.jpg".format(i)), frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
 
     capture.release()
 
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(output_dir, "jpegs"), exist_ok=True)
     videos = [video_path for video_path in glob(os.path.join(args.root_dir, "**", "*.mp4"), recursive=True)]
     print(f"Found {len(videos)} videos in {args.root_dir}")
-    with Pool(processes=cpu_count() - 2) as p:
+    with Pool(processes=4) as p:
         with tqdm(total=len(videos)) as pbar:
             for v in p.imap_unordered(partial(extract_video, root_dir=output_dir, num_frames=args.num_frames), videos):
                 pbar.update()
