@@ -34,7 +34,7 @@ class AugmentationConsistencyLoss(nn.Module):
 class CombinedLoss(nn.Module):
     """Combined loss: video CE + frame CE + augmentation consistency."""
 
-    def __init__(self, consistency_weight=1.0, frame_weight=0.3, real_weight=4.0):
+    def __init__(self, consistency_weight=1.0, frame_weight=0.3, real_weight=6.0):
         super().__init__()
         weight = torch.tensor([real_weight, 1.0])
         self.video_ce = nn.CrossEntropyLoss(weight=weight)
