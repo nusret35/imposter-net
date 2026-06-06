@@ -73,7 +73,7 @@ class FlatFrameDataset(Dataset):
                 source = file_path.split("/")[0]
 
                 # Check that at least the first frame exists
-                first_frame = os.path.join(self.jpegs_dir, f"{video_id}_0000.jpg")
+                first_frame = os.path.join(self.jpegs_dir, video_id, "0000.jpg")
                 if not os.path.exists(first_frame):
                     continue
 
@@ -112,10 +112,10 @@ class FlatFrameDataset(Dataset):
         return result
 
     def _load_frames(self, video_id):
-        """Load frames named {video_id}_{NNNN}.jpg from the flat directory."""
+        """Load frames named {NNNN}.jpg from per-video subdirectories."""
         frames = []
         for i in range(self.num_frames):
-            path = os.path.join(self.jpegs_dir, f"{video_id}_{i:04d}.jpg")
+            path = os.path.join(self.jpegs_dir, video_id, f"{i:04d}.jpg")
             if os.path.exists(path):
                 img = Image.open(path).convert("RGB")
                 frames.append(img)
