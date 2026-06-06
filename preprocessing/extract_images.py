@@ -26,7 +26,10 @@ def extract_video(video, root_dir, num_frames):
     else:
         indices = list(range(total_frames))
 
-    video_id = os.path.splitext(os.path.basename(video))[0]
+    # Include parent dir to avoid collisions (e.g. Face2Face_944_032)
+    parent = os.path.basename(os.path.dirname(video))
+    basename = os.path.splitext(os.path.basename(video))[0]
+    video_id = f"{parent}_{basename}"
     out_dir = os.path.join(root_dir, "jpegs", video_id)
     if os.path.exists(out_dir) and len(os.listdir(out_dir)) > 0:
         capture.release()

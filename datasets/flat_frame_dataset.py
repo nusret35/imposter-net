@@ -68,9 +68,12 @@ class FlatFrameDataset(Dataset):
             reader = csv.DictReader(f)
             for row in reader:
                 file_path = row["File Path"]
-                video_id = os.path.splitext(os.path.basename(file_path))[0]
+                # Match extraction: {type}_{filename} (e.g. Face2Face_944_032)
+                parent = file_path.split("/")[0]
+                basename = os.path.splitext(os.path.basename(file_path))[0]
+                video_id = f"{parent}_{basename}"
                 label = 0 if row["Label"] == "REAL" else 1
-                source = file_path.split("/")[0]
+                source = parent
 
                 # Check that at least the first frame exists
                 first_frame = os.path.join(self.jpegs_dir, video_id, "0000.jpg")
