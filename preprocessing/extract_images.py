@@ -28,6 +28,9 @@ def extract_video(video, root_dir, num_frames):
 
     video_id = os.path.splitext(os.path.basename(video))[0]
     out_dir = os.path.join(root_dir, "jpegs", video_id)
+    if os.path.exists(out_dir) and len(os.listdir(out_dir)) > 0:
+        capture.release()
+        return
     os.makedirs(out_dir, exist_ok=True)
 
     for i, frame_idx in enumerate(indices):
