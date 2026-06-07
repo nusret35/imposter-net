@@ -1,6 +1,7 @@
 import argparse
 import csv
 import os
+import time
 
 import torch
 from dotenv import load_dotenv
@@ -118,9 +119,10 @@ def main():
     log_file = open(log_path, "a", newline="")
     log_writer = csv.writer(log_file)
     if write_header:
-        log_writer.writerow(["epoch", "train_loss", "val_loss", "val_auc"])
+        log_writer.writerow(["epoch", "train_loss", "val_loss", "val_auc", "epoch_time_min"])
 
     for epoch in range(start_epoch, args.epochs + 1):
+        epoch_start = time.time()
         print(f"\n--- Epoch {epoch}/{args.epochs} ---")
 
         train_losses, train_acc = train_epoch(model, train_loader, criterion, optimizer, device, accum_steps=args.accum_steps)
@@ -133,7 +135,9 @@ def main():
             auc_str = f", AUC: {m_metrics['auc']:.4f}" if "auc" in m_metrics else ""
             print(f"  {m_type}: Acc: {m_metrics['accuracy']:.4f}{auc_str}")
 
-        log_writer.writerow([epoch, f"{train_losses['total']:.4f}", f"{val_metrics['loss']['total']:.4f}", f"{val_metrics['auc']:.4f}"])
+        epoch_time = (time.time() - epoch_start) / 60
+        print(f"Epoch time: {epoch_time:.1f} min")
+        log_writer.writerow([epoch, f"{train_losses['total']:.4f}", f"{val_metrics['loss']['total']:.4f}", f"{val_metrics['auc']:.4f}", f"{epoch_time:.1f}"])
         log_file.flush()
 
         scheduler.step()

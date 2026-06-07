@@ -36,9 +36,9 @@ class CombinedLoss(nn.Module):
 
     def __init__(self, consistency_weight=1.0, frame_weight=0.3, real_weight=6.0):
         super().__init__()
-        weight = torch.tensor([real_weight, 1.0])
-        self.video_ce = nn.CrossEntropyLoss(weight=weight)
-        self.frame_ce = nn.CrossEntropyLoss(weight=weight)
+        self.register_buffer("class_weight", torch.tensor([real_weight, 1.0]))
+        self.video_ce = None
+        self.frame_ce = None
         self.aug_consistency = AugmentationConsistencyLoss()
         self.consistency_weight = consistency_weight
         self.frame_weight = frame_weight
@@ -55,12 +55,12 @@ class CombinedLoss(nn.Module):
             total_loss, loss_dict
         """
         # Video-level classification loss
-        loss_video = self.video_ce(video_logits, labels)
+        loss_video = F.cross_entropy(video_logits, labels, weight=self.class_weight)
 
         # Frame-level classification loss
         B, T, C = frame_logits.shape
         frame_labels = labels.unsqueeze(1).expand(-1, T).reshape(-1)
-        loss_frame = self.frame_ce(frame_logits.reshape(-1, C), frame_labels)
+        loss_frame = F.cross_entropy(frame_logits.reshape(-1, C), frame_labels, weight=self.class_weight)
 
         total = loss_video + self.frame_weight * loss_frame
 
