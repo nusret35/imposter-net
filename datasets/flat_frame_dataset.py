@@ -103,6 +103,7 @@ class FlatFrameDataset(Dataset):
             "train": real_train + fake_train,
             "val": real_val + fake_val,
             "test": real_test + fake_test,
+            "all": real_samples + fake_samples,
         }
 
         result = splits[split]

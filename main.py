@@ -37,6 +37,7 @@ def parse_args():
     parser.add_argument("--accum-steps", type=int, default=1, help="gradient accumulation steps (effective batch = batch-size * accum-steps)")
     parser.add_argument("--resume", default=None, help="path to checkpoint to resume training from")
     parser.add_argument("--eval-only", default=None, help="path to checkpoint to evaluate on test set (skips training)")
+    parser.add_argument("--eval-split", default="test", help="split to evaluate on (train/val/test/all)")
     parser.add_argument("--save-dir", default="checkpoints", help="directory to save model checkpoints")
     return parser.parse_args()
 
@@ -88,10 +89,12 @@ def main():
         print(f"Loading checkpoint: {args.eval_only}")
         ckpt = torch.load(args.eval_only, map_location=device)
         model.load_state_dict(ckpt["model_state_dict"])
-        print(f"\n--- Test Set Evaluation ---")
-        test_metrics = evaluate(model, test_loader, criterion, device)
-        print(f"Test - Acc: {test_metrics['accuracy']:.4f}, AUC: {test_metrics['auc']:.4f}")
-        for m_type, m_metrics in test_metrics.get("per_type", {}).items():
+        eval_dataset = make_dataset(args, args.eval_split)
+        eval_loader = DataLoader(eval_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+        print(f"\n--- {args.eval_split.upper()} Set Evaluation ---")
+        eval_metrics = evaluate(model, eval_loader, criterion, device)
+        print(f"Result - Acc: {eval_metrics['accuracy']:.4f}, AUC: {eval_metrics['auc']:.4f}")
+        for m_type, m_metrics in eval_metrics.get("per_type", {}).items():
             auc_str = f", AUC: {m_metrics['auc']:.4f}" if "auc" in m_metrics else ""
             print(f"  {m_type}: Acc: {m_metrics['accuracy']:.4f}{auc_str}")
         return
