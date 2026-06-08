@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=20, help="number of training epochs")
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate")
     parser.add_argument("--freeze-backbone", action="store_true", help="freeze Xception weights")
+    parser.add_argument("--no-lstm", action="store_true", help="disable LSTM, average per-frame features instead")
     parser.add_argument("--consistency-weight", type=float, default=1.0, help="augmentation consistency loss weight")
     parser.add_argument("--num-workers", type=int, default=0, help="dataloader workers")
     parser.add_argument("--device", default="cpu", help="device (cpu/cuda/mps)")
@@ -81,6 +82,7 @@ def main():
         num_classes=2,
         pretrained_backbone=True,
         freeze_backbone=args.freeze_backbone,
+        use_lstm=not args.no_lstm,
     ).to(device)
 
     criterion = CombinedLoss(consistency_weight=args.consistency_weight).to(device)

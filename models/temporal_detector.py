@@ -100,11 +100,13 @@ class TemporalDeepfakeDetector(nn.Module):
         num_classes=2,
         pretrained_backbone=True,
         freeze_backbone=False,
+        use_lstm=True,
         lstm_hidden_dim=512,
         lstm_num_layers=2,
         lstm_dropout=0.3,
     ):
         super().__init__()
+        self.use_lstm = use_lstm
         self.backbone = XceptionBackbone(pretrained=pretrained_backbone)
         self.texture_fusion = TextureFusion()
 
@@ -122,28 +124,30 @@ class TemporalDeepfakeDetector(nn.Module):
         # Per-frame fused feature: 128 (texture) + 256 (projected) = 384
         fused_dim = self.FUSED_DIM
 
-        self.lstm = nn.LSTM(
-            input_size=fused_dim,
-            hidden_size=lstm_hidden_dim,
-            num_layers=lstm_num_layers,
-            batch_first=True,
-            bidirectional=True,
-            dropout=lstm_dropout if lstm_num_layers > 1 else 0.0,
-        )
+        if use_lstm:
+            self.lstm = nn.LSTM(
+                input_size=fused_dim,
+                hidden_size=lstm_hidden_dim,
+                num_layers=lstm_num_layers,
+                batch_first=True,
+                bidirectional=True,
+                dropout=lstm_dropout if lstm_num_layers > 1 else 0.0,
+            )
+            head_input_dim = lstm_hidden_dim * 2  # bidirectional
+        else:
+            head_input_dim = fused_dim
 
-        lstm_output_dim = lstm_hidden_dim * 2  # bidirectional
-
-        # Video-level head (from final LSTM hidden state)
+        # Video-level head
         self.video_head = nn.Sequential(
-            nn.Linear(lstm_output_dim, 256),
+            nn.Linear(head_input_dim, 256),
             nn.ReLU(inplace=True),
             nn.Dropout(0.3),
             nn.Linear(256, num_classes),
         )
 
-        # Frame-level head (from each LSTM timestep)
+        # Frame-level head
         self.frame_head = nn.Sequential(
-            nn.Linear(lstm_output_dim, 256),
+            nn.Linear(head_input_dim, 256),
             nn.ReLU(inplace=True),
             nn.Dropout(0.3),
             nn.Linear(256, num_classes),
@@ -198,16 +202,24 @@ class TemporalDeepfakeDetector(nn.Module):
         """
         fused_seq, feat_v1, feat_v2 = self._process_views(view1, view2)
 
-        # BiLSTM over temporal sequence
-        lstm_out, (h_n, _) = self.lstm(fused_seq)  # [B, T, hidden*2]
+        if self.use_lstm:
+            # BiLSTM over temporal sequence
+            lstm_out, (h_n, _) = self.lstm(fused_seq)  # [B, T, hidden*2]
 
-        # Video-level: concat final forward + backward hidden states
-        h_forward = h_n[-2]
-        h_backward = h_n[-1]
-        video_repr = torch.cat([h_forward, h_backward], dim=1)
-        video_logits = self.video_head(video_repr)
+            # Video-level: concat final forward + backward hidden states
+            h_forward = h_n[-2]
+            h_backward = h_n[-1]
+            video_repr = torch.cat([h_forward, h_backward], dim=1)
+            video_logits = self.video_head(video_repr)
 
-        # Frame-level
-        frame_logits = self.frame_head(lstm_out)
+            # Frame-level
+            frame_logits = self.frame_head(lstm_out)
+        else:
+            # No LSTM: average per-frame features for video-level
+            video_repr = fused_seq.mean(dim=1)  # [B, 384]
+            video_logits = self.video_head(video_repr)
+
+            # Frame-level: classify each frame independently
+            frame_logits = self.frame_head(fused_seq)
 
         return video_logits, frame_logits, feat_v1, feat_v2
