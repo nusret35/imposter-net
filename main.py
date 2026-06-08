@@ -5,7 +5,7 @@ import time
 
 import torch
 from dotenv import load_dotenv
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from datasets.video_sequence_dataset import VideoSequenceDataset
 from datasets.frame_sequence_dataset import FrameSequenceDataset
@@ -73,7 +73,10 @@ def main():
 
     print(f"Train: {len(train_dataset)}, Val: {len(val_dataset)}, Test: {len(test_dataset)}")
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    # Balanced sampling: oversample real videos so each batch has a mix
+    sample_weights = [6.0 if s[1] == 0 else 1.0 for s in train_dataset.samples]
+    sampler = WeightedRandomSampler(sample_weights, num_samples=len(train_dataset), replacement=True)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, sampler=sampler, num_workers=args.num_workers)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
